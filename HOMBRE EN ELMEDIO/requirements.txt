@@ -1,0 +1,13 @@
+# Dependencias Python del proyecto MITM en SDN (GNS3 + Ryu).
+#
+# Nota: GNS3, VirtualBox, Open vSwitch y Wireshark se instalan a nivel de
+# sistema (ver scripts/setup_env.sh y ovs/setup_ovs.sh), no via pip.
+#
+# Ryu requiere una version concreta de eventlet para funcionar con Python 3.8+.
+
+ryu==4.34
+eventlet==0.30.2
+scapy>=2.5.0
+
+# Cliente HTTP para consumir la API REST de Ryu (se usa a partir de la Fase 2)
+requests>=2.31.0
