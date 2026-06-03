@@ -21,8 +21,8 @@ La meta es completar **una fase al 100% cada semana**.
 
 | Fase | Semana | Objetivo | Estado |
 |------|--------|----------|--------|
-| **Fase 1** | Semana 1 | Preparación del entorno: GNS3 + VirtualBox, OVS, Ryu, topologías y línea base de tráfico | ✅ En curso |
-| **Fase 2** | Semana 2 | Implementación del ataque MITM (ARP Spoofing con Scapy + inyección de flujos vía API REST de Ryu) | ⬜ Pendiente |
+| **Fase 1** | Semana 1 | Preparación del entorno: GNS3 + VirtualBox, OVS, Ryu, topologías y línea base de tráfico | ✅ Completada |
+| **Fase 2** | Semana 2 | Implementación del ataque MITM (ARP Spoofing con Scapy + inyección de flujos vía API REST de Ryu + interceptación/modificación) | ✅ En curso |
 | **Fase 3** | Semana 3 | Recolección y análisis de evidencias (pcap, estadísticas de flujo, logs, IoC) | ⬜ Pendiente |
 | **Fase 4** | Semana 4 | Simulación completa en GNS3 y evaluación de mecanismos de mitigación | ⬜ Pendiente |
 
@@ -87,6 +87,12 @@ sudo ./scripts/baseline_capture.sh h1-eth0 60
 │   └── setup_ovs.sh             # Configura Open vSwitch y lo conecta a Ryu
 ├── hosts/
 │   └── config_host.sh           # Direccionamiento IPv4 estático de los hosts
+├── attack/                      # Fase 2: módulo de ataque MITM
+│   ├── arp_spoof.py             # ARP Spoofing (Scapy) desde el atacante
+│   ├── flow_inject.py           # Inyección de flujos OpenFlow vía API REST de Ryu
+│   ├── mitm_intercept.py        # Interceptación/modificación de paquetes
+│   ├── demo_traffic.sh          # Genera tráfico de prueba (ICMP/TCP/HTTP)
+│   └── verify_mitm.sh           # Verifica que el MITM esté activo
 ├── scripts/
 │   ├── setup_env.sh             # Instala dependencias según el rol de la VM
 │   ├── run_controller.sh        # Arranca el controlador Ryu
@@ -95,6 +101,7 @@ sudo ./scripts/baseline_capture.sh h1-eth0 60
 └── docs/
     ├── PLAN_GENERAL.md          # Plan de las 4 fases (OE1–OE5)
     ├── FASE1.md                 # Documentación detallada de la Fase 1
+    ├── FASE2.md                 # Documentación detallada de la Fase 2
     ├── TOPOLOGIAS.md            # Topologías estrella / árbol / malla + direccionamiento
     └── Anteproyecto_MITM_SDN.pdf
 ```
@@ -113,8 +120,8 @@ sudo ./scripts/baseline_capture.sh h1-eth0 60
 
 ## Bitácora de avance
 
-- **Fase 1 — Semana 1:** entorno GNS3 + SDN configurado y línea base capturada. _(esta entrega)_
-- Fase 2 — Semana 2: _pendiente._
+- **Fase 1 — Semana 1:** entorno GNS3 + SDN configurado y línea base capturada. ✅
+- **Fase 2 — Semana 2:** ataque MITM implementado — ARP Spoofing, inyección de flujos e interceptación/modificación. _(esta entrega)_
 - Fase 3 — Semana 3: _pendiente._
 - Fase 4 — Semana 4: _pendiente._
 
