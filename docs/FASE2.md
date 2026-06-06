@@ -29,8 +29,11 @@ Sobre el entorno de la Fase 1, en la **VM atacante (h3)**:
 
 ```bash
 sudo ./scripts/setup_env.sh host      # ya instala Scapy
+# netfilterqueue se compila desde C: instala las cabeceras ANTES o pip falla
+# (fatal error: libnfnetlink/linux_nfnetlink.h: No such file or directory)
+sudo apt-get install -y build-essential python3-dev libnetfilter-queue-dev libnfnetlink-dev curl netcat
 pip3 install netfilterqueue requests  # para intercepción y API REST
-sudo apt-get install -y curl netcat   # para los scripts de demo
+python3 -c "import netfilterqueue; print('netfilterqueue OK')"
 ```
 
 El reenvío IPv4 del atacante debe estar activo (lo hace `hosts/config_host.sh h3`):

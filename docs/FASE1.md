@@ -53,13 +53,29 @@ fases siguientes (ataque, evidencias y mitigación). El entorno combina:
 
 ### 5.2 Instalar dependencias (en cada VM, según su rol)
 ```bash
-sudo ./scripts/setup_env.sh controller   # VM Ryu
 sudo ./scripts/setup_env.sh ovs          # VM Open vSwitch
 sudo ./scripts/setup_env.sh host         # cada VM host (incluye el atacante)
 ```
 
+> **VM Ryu — nota importante.** Ryu 4.34 no funciona con Python 3.10 (Ubuntu 22.04) ni con
+> setuptools/eventlet modernos (errores típicos: `get_script_args` al compilar, o
+> `cannot set 'is_timeout' attribute of immutable type 'TimeoutError'` al arrancar).
+> Instálalo en un **entorno virtual con Python 3.9**:
+> ```bash
+> sudo apt-get install -y software-properties-common
+> sudo add-apt-repository -y ppa:deadsnakes/ppa
+> sudo apt-get update
+> sudo apt-get install -y python3.9 python3.9-venv python3.9-dev
+> python3.9 -m venv ~/ryu-venv
+> source ~/ryu-venv/bin/activate
+> pip install --upgrade "pip<21" "setuptools==58.2.0" wheel
+> pip install "eventlet==0.30.2" "ryu==4.34" requests
+> ryu-manager --version
+> ```
+
 ### 5.3 Arrancar el controlador (VM Ryu)
 ```bash
+source ~/ryu-venv/bin/activate       # activar el venv en cada sesión
 ./scripts/run_controller.sh          # learning switch
 # o, dejando lista la API REST para la Fase 2:
 REST=1 ./scripts/run_controller.sh
