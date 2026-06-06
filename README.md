@@ -22,7 +22,7 @@ La meta es completar **una fase al 100% cada semana**.
 | Fase | Semana | Objetivo | Estado |
 |------|--------|----------|--------|
 | **Fase 1** | Semana 1 | Preparación del entorno: GNS3 + VirtualBox, OVS, Ryu, topologías y línea base de tráfico | ✅ Completada |
-| **Fase 2** | Semana 2 | Implementación del ataque MITM (ARP Spoofing con Scapy + inyección de flujos vía API REST de Ryu + interceptación/modificación) | ✅ En curso |
+| **Fase 2** | Semana 2 | Implementación del ataque MITM (ARP Spoofing con Scapy + inyección de flujos vía API REST de Ryu + interceptación/modificación) | ✅ Completada |
 | **Fase 3** | Semana 3 | Recolección y análisis de evidencias (pcap, estadísticas de flujo, logs, IoC) | ⬜ Pendiente |
 | **Fase 4** | Semana 4 | Simulación completa en GNS3 y evaluación de mecanismos de mitigación | ⬜ Pendiente |
 
@@ -195,7 +195,7 @@ Toma una **snapshot** en GNS3. Con esto la Fase 1 queda montada.
 ## Bitácora de avance
 
 - **Fase 1 — Semana 1:** entorno GNS3 + SDN configurado y línea base capturada. ✅
-- **Fase 2 — Semana 2:** ataque MITM implementado — ARP Spoofing, inyección de flujos e interceptación/modificación. _(esta entrega)_
+- **Fase 2 — Semana 2:** ataque MITM implementado — ARP Spoofing, inyección de flujos e interceptación/modificación. ✅
 - Fase 3 — Semana 3: _pendiente._
 - Fase 4 — Semana 4: _pendiente._
 
