@@ -25,10 +25,35 @@ base_tools() {
 }
 
 install_controller() {
-    echo "==> [controller] Instalando Ryu"
+    echo "==> [controller] Instalando Ryu 4.34 con Python 3.9"
+    echo "    (Ryu 4.34 NO funciona con Python 3.10, el default de Ubuntu 22.04)"
     base_tools
-    pip3 install --upgrade pip
-    pip3 install ryu==4.34 eventlet==0.30.2 requests
+
+    # Python 3.9 via deadsnakes PPA
+    apt-get install -y software-properties-common
+    add-apt-repository -y ppa:deadsnakes/ppa
+    apt-get update
+    apt-get install -y python3.9 python3.9-venv python3.9-dev
+
+    local VENV_PATH="/root/ryu-venv"
+    echo "==> Creando entorno virtual en ${VENV_PATH}"
+    python3.9 -m venv "${VENV_PATH}"
+    # shellcheck disable=SC1091
+    source "${VENV_PATH}/bin/activate"
+
+    pip install --upgrade "pip<21" "setuptools==58.2.0" wheel
+    pip install "eventlet==0.30.2" "ryu==4.34" requests
+
+    echo "==> Verificando instalacion:"
+    ryu-manager --version
+
+    deactivate
+
+    echo ""
+    echo "IMPORTANTE: activa el venv antes de arrancar Ryu en cada sesion:"
+    echo "    source ${VENV_PATH}/bin/activate"
+    echo "    REST=1 ./scripts/run_controller.sh"
+    echo ""
 }
 
 install_ovs() {
@@ -56,8 +81,15 @@ esac
 
 echo ""
 echo "==> Comprobacion:"
-command -v ryu-manager >/dev/null 2>&1 && echo "    ryu-manager: OK" || true
-command -v ovs-vsctl   >/dev/null 2>&1 && echo "    ovs-vsctl:   OK" || true
+if [[ "${ROLE}" == "controller" || "${ROLE}" == "all" ]]; then
+    VENV_BIN="/root/ryu-venv/bin"
+    if "${VENV_BIN}/ryu-manager" --version 2>/dev/null; then
+        echo "    ryu-manager: OK (en ${VENV_BIN})"
+    else
+        echo "    ryu-manager: FALLO — revisa la instalacion del venv"
+    fi
+fi
+command -v ovs-vsctl >/dev/null 2>&1 && echo "    ovs-vsctl: OK" || true
 python3 -c "import scapy; print('    scapy:', scapy.__version__)" 2>/dev/null || true
 
 echo "==> Listo (rol: ${ROLE})."
