@@ -1,77 +1,110 @@
-# Ataque Man-in-the-Middle en Redes SDN (GNS3 + Ryu)
+# Ataque Man-in-the-Middle en Redes SDN
 
 **Implementación y Análisis de un Ataque Man-in-the-Middle en Entornos de Redes Definidas por Software (SDN): Interceptación, Modificación de Paquetes y Estrategias de Mitigación.**
 
 Proyecto de la Especialización en Ciberseguridad. Implementa, analiza y mitiga un ataque MITM
-(mediante **ARP Spoofing** e inyección de flujos OpenFlow maliciosos) en una red **SDN emulada con
-GNS3**, controlada por **Ryu** y conmutada por **Open vSwitch**, usando **Scapy** y **Wireshark**.
-El trabajo extiende el repositorio académico **SdnShare** (que ya incorpora módulos de ataque DDoS)
-con una nueva capa orientada a ataques de intermediario.
+mediante **ARP Spoofing** e inyección de flujos OpenFlow maliciosos en una red SDN emulada,
+controlada por **Ryu** y conmutada por **Open vSwitch (OVS)**, usando **Scapy** y **Wireshark**.
 
 > ⚠️ **Uso responsable.** Todo el material es exclusivamente para fines educativos y de investigación,
-> dentro de un laboratorio virtualizado y aislado (GNS3 + VirtualBox). No debe utilizarse contra redes o
-> sistemas sobre los que no se tenga autorización explícita.
+> dentro de un laboratorio virtualizado y aislado. No debe utilizarse contra redes o sistemas sobre los
+> que no se tenga autorización explícita.
 
 ---
 
-## Plan del proyecto (4 semanas / 4 fases)
+## Plan del proyecto (4 fases)
 
-El proyecto se divide en cuatro fases (metodología experimental-cuantitativa), una **fase por semana**.
-La meta es completar **una fase al 100% cada semana**.
-
-| Fase | Semana | Objetivo | Estado |
-|------|--------|----------|--------|
-| **Fase 1** | Semana 1 | Preparación del entorno: GNS3 + VirtualBox, OVS, Ryu, topologías y línea base de tráfico | ✅ Completada |
-| **Fase 2** | Semana 2 | Implementación del ataque MITM (ARP Spoofing con Scapy + inyección de flujos vía API REST de Ryu + interceptación/modificación) | ✅ Completada |
-| **Fase 3** | Semana 3 | Recolección y análisis de evidencias (pcap, estadísticas de flujo, logs, IoC) | ⬜ Pendiente |
-| **Fase 4** | Semana 4 | Simulación completa en GNS3 y evaluación de mecanismos de mitigación | ⬜ Pendiente |
-
-Detalle completo en [`docs/PLAN_GENERAL.md`](docs/PLAN_GENERAL.md).
+| Fase | Objetivo | Estado |
+|------|----------|--------|
+| **Fase 1** | Preparación del entorno: VMs, OVS, Ryu, conectividad verificada | ✅ Completada |
+| **Fase 2** | Implementación del ataque MITM (ARP Spoofing + inyección de flujos OpenFlow) | ✅ Completada |
+| **Fase 3** | Recolección y análisis de evidencias (pcap, estadísticas de flujo, IoC) | ✅ Completada |
+| **Fase 4** | Mitigación activa en Ryu + evaluación de métricas (TP, FP, tiempos) | 🧪 En pruebas |
 
 ---
 
-## Fase 1 — Preparación del entorno (esta entrega)
-
-Esta fase deja listo un laboratorio SDN reproducible en GNS3:
-
-- **Controlador Ryu** (learning switch OpenFlow 1.3) para la VM de control.
-- **Open vSwitch (OVS)** configurado para conectarse al controlador por el canal OpenFlow.
-- **Hosts Ubuntu Server** con direccionamiento IPv4 estático.
-- **Tres escenarios de topología**: estrella, árbol y malla (ver [`docs/TOPOLOGIAS.md`](docs/TOPOLOGIAS.md)).
-- **Scripts** para configurar cada componente y para capturar la **línea base de tráfico legítimo**.
-
-Guía paso a paso y checklist de cierre en [`docs/FASE1.md`](docs/FASE1.md).
-
-### Arquitectura (resumen)
+## Arquitectura del laboratorio
 
 ```
-   Plano de datos (10.0.0.0/24)              Plano de control (192.168.100.0/24)
-   ───────────────────────────              ──────────────────────────────────
-   h1  10.0.0.11  (víctima A)
-   h2  10.0.0.12  (víctima B/servidor)  ── [ Open vSwitch ] ──OpenFlow 1.3── [ Ryu  192.168.100.10 ]
-   h3  10.0.0.66  (atacante, Fase 2)
+Plano de control (192.168.100.0/24)
+┌─────────────────────────────────────────────┐
+│  ryu  192.168.100.10  (enp0s3)              │
+│   │  OpenFlow 1.3 tcp:6653                  │
+│  ovs  192.168.100.20  (enp0s3)              │
+└─────────────────────────────────────────────┘
+
+Plano de datos (10.0.0.0/24)
+┌─────────────────────────────────────────────┐
+│  ovs   10.0.0.1   (enp0s8 → br0)           │
+│  h1    10.0.0.11  (enp0s3)  víctima A       │
+│  h2    10.0.0.12  (enp0s3)  víctima B       │
+│  h3    10.0.0.13  (enp0s3)  atacante        │
+└─────────────────────────────────────────────┘
+
+Todas las VMs conectadas via VirtualBox Internal Network "intnet"
 ```
 
-## Montaje paso a paso (5 VMs en GNS3 + VirtualBox)
+---
 
-El laboratorio usa **5 VMs Ubuntu Server 22.04**: `ryu`, `ovs`, `h1`, `h2`, `h3`.
-Lo más práctico es instalar Ubuntu Server **una vez** (ISO de
-[ubuntu.com/download/server](https://ubuntu.com/download/server) — **no** la "cloud image"),
-crear tu usuario/contraseña durante la instalación, y luego **clonar** la VM 5 veces en VirtualBox
-(marcando "Generar nuevas direcciones MAC para todos los adaptadores").
+## Requisitos
 
-### Paso 0 — Traer el proyecto a cada VM
-En cada VM, clona el repositorio y entra en la carpeta:
+- **VirtualBox** (probado con 7.x)
+- **GNS3** (opcional para visualizar topología, no requerido para conectividad)
+- **5 VMs Ubuntu Server 22.04** clonadas desde una VM base:
+  - `ryu` — controlador SDN
+  - `ovs` — switch OpenFlow
+  - `h1`, `h2`, `h3` — hosts (víctimas / atacante)
+
+---
+
+## Paso 1 — Crear las VMs en VirtualBox
+
+Instala Ubuntu Server 22.04 en una VM base, luego **clona** 5 veces marcando
+"Generar nuevas direcciones MAC para todos los adaptadores".
+
+Nombres sugeridos: `ryu`, `ovs`, `h1`, `h2`, `h3`.
+
+### Configuración de adaptadores de red (CRÍTICO)
+
+> ⚠️ **Lección aprendida:** El Ethernet Switch de GNS3 presentó problemas para reenviar
+> tráfico entre VMs de VirtualBox. La solución que funcionó es usar **VirtualBox Internal Network
+> directamente**, sin depender del switch virtual de GNS3.
+
+En VirtualBox → Configuración → Red, para **cada VM** (con las VMs **apagadas**):
+
+| VM | Adaptador | Conectado a | Nombre |
+|----|-----------|-------------|--------|
+| ryu | Adaptador 1 | Red interna | `intnet` |
+| ovs | Adaptador 1 | Red interna | `intnet` |
+| ovs | Adaptador 2 | Red interna | `intnet` |
+| h1 | Adaptador 1 | Red interna | `intnet` |
+| h2 | Adaptador 1 | Red interna | `intnet` |
+| h3 | Adaptador 1 | Red interna | `intnet` |
+
+> El nombre **debe ser exactamente `intnet`** en todas las VMs para que se vean entre sí.
+> En VirtualBox, dos adaptadores con el mismo nombre de red interna forman un segmento L2 compartido.
+
+**Nota sobre GNS3:** Si usas GNS3 para visualizar la topología, configura los nodos con:
+- ryu: 1 adaptador, ovs: 2 adaptadores, hosts: 1 adaptador cada uno.
+- Marcar **"Allow GNS3 to use any configured VirtualBox adapter"** en las propiedades de cada nodo.
+- El Ethernet Switch de GNS3 puede agregarse para visualización, pero la conectividad real
+  depende de la configuración de VirtualBox, no del switch de GNS3.
+
+---
+
+## Paso 2 — Instalar dependencias (una sola vez)
+
+Clona el repositorio en cada VM:
 ```bash
 git clone <URL-del-repo> ~/proyecto-mitm
 cd ~/proyecto-mitm
-chmod +x scripts/*.sh ovs/*.sh hosts/*.sh attack/*.sh attack/*.py controller/*.py
+chmod +x scripts/*.sh ovs/*.sh hosts/*.sh attack/*.sh
 ```
 
-### Paso 1 — Instalar dependencias por rol
+### VM `ryu` — Controlador
 
-**VM `ryu` (controlador).** Ryu 4.34 NO compila/corre con Python 3.10 (Ubuntu 22.04) ni con
-setuptools/eventlet modernos. La forma fiable es un **entorno virtual con Python 3.9**:
+Ryu 4.34 requiere Python 3.9 (no es compatible con Python 3.10+ de Ubuntu 22.04):
+
 ```bash
 sudo apt-get update
 sudo apt-get install -y software-properties-common
@@ -83,120 +116,226 @@ python3.9 -m venv ~/ryu-venv
 source ~/ryu-venv/bin/activate
 pip install --upgrade "pip<21" "setuptools==58.2.0" wheel
 pip install "eventlet==0.30.2" "ryu==4.34" requests
-ryu-manager --version        # debe imprimir "ryu-manager 4.34"
-```
-> Recuerda: en la VM `ryu`, **activa el venv antes de arrancar el controlador** en cada sesión:
-> `source ~/ryu-venv/bin/activate`
-
-**VM `ovs` (switch):**
-```bash
-sudo ./scripts/setup_env.sh ovs
+ryu-manager --version   # debe imprimir: ryu-manager 4.34
 ```
 
-**VMs `h1` y `h2` (víctimas):**
+### VM `ovs` — Switch
+
 ```bash
-sudo ./scripts/setup_env.sh host
+sudo apt-get update
+sudo apt-get install -y openvswitch-switch
+sudo systemctl enable openvswitch-switch
 ```
 
-**VM `h3` (atacante).** `netfilterqueue` se compila desde C y necesita las cabeceras de
-netfilter; instálalas ANTES o el `pip install` falla con
-`fatal error: libnfnetlink/linux_nfnetlink.h: No such file or directory`:
+### VMs `h1`, `h2` — Víctimas
+
 ```bash
-sudo ./scripts/setup_env.sh host
+sudo apt-get update
+sudo apt-get install -y tcpdump iproute2
+```
+
+### VM `h3` — Atacante
+
+```bash
+sudo apt-get update
+sudo apt-get install -y python3-pip tcpdump iproute2
 sudo apt-get install -y build-essential python3-dev libnetfilter-queue-dev libnfnetlink-dev curl netcat
-pip3 install netfilterqueue requests
-python3 -c "import netfilterqueue; print('netfilterqueue OK')"   # verificar
+pip3 install netfilterqueue requests scapy
 ```
-
-Qué instala cada rol:
-
-| VM | Comando | Instala |
-|----|---------|---------|
-| `ryu` | venv Python 3.9 + `pip install ryu==4.34 ...` | Ryu, eventlet, requests |
-| `ovs` | `setup_env.sh ovs` | Open vSwitch |
-| `h1`, `h2` | `setup_env.sh host` | Scapy, tshark, tcpdump |
-| `h3` | `setup_env.sh host` + extras | + netfilterqueue, requests, curl, netcat |
-
-### Paso 2 — Arrancar y configurar (orden recomendado)
-```bash
-# VM ryu  (¡activa el venv primero!)
-source ~/ryu-venv/bin/activate
-REST=1 ./scripts/run_controller.sh        # OpenFlow 1.3 :6653 + API REST :8080
-
-# VM ovs  (edita CONTROLLER_IP y DATA_IFACES en ovs/setup_ovs.sh si hace falta)
-sudo ./ovs/setup_ovs.sh
-
-# VMs host: asignar IPv4 según el rol
-sudo ./hosts/config_host.sh h1            # 10.0.0.11
-sudo ./hosts/config_host.sh h2            # 10.0.0.12
-sudo ./hosts/config_host.sh h3            # 10.0.0.66 (activa ip_forward)
-
-# Línea base de tráfico legítimo (en un host o en la VM ovs)
-sudo ./scripts/baseline_capture.sh eth0 60
-```
-
-### Paso 3 — Validar la Fase 1
-```bash
-# en h1: conectividad con h2
-ping -c 3 10.0.0.12
-# en la VM ovs: flujos instalados por el controlador
-sudo ovs-ofctl -O OpenFlow13 dump-flows br0
-```
-Toma una **snapshot** en GNS3. Con esto la Fase 1 queda montada.
 
 ---
 
-## Ejecución del ataque MITM (Fase 2)
+## Paso 3 — Asignar IPs (cada sesión)
 
-Con el laboratorio de la Fase 1 funcionando (Ryu + OVS + hosts con conectividad), el ataque se lanza
-desde el atacante **h3**. Detalle completo y checklist en [`docs/FASE2.md`](docs/FASE2.md).
+> ⚠️ Las IPs asignadas con `ip addr add` **no son persistentes**. Deben reasignarse
+> cada vez que se reinician las VMs. Ver "Solución de problemas" para hacerlas persistentes.
 
-### Preparación extra en h3
+### VM `ryu`
 ```bash
-# netfilterqueue se compila desde C: instala las cabeceras ANTES o pip falla
-sudo apt-get install -y build-essential python3-dev libnetfilter-queue-dev libnfnetlink-dev curl netcat
-pip3 install netfilterqueue requests
-sudo sysctl -w net.ipv4.ip_forward=1      # MITM transparente (no romper conectividad)
+sudo ip link set enp0s3 up
+sudo ip addr add 192.168.100.10/24 dev enp0s3
 ```
 
-### Vector A — ARP Spoofing (en h3)
+### VM `ovs`
 ```bash
-sudo python3 attack/arp_spoof.py --target 10.0.0.11 --gateway 10.0.0.12
-```
-Deja la terminal corriendo (reenvía ARP envenenado). Ctrl+C restaura las cachés.
-
-### Vector C — Interceptar / modificar (en h3, otra terminal)
-```bash
-# Solo observar el tráfico que pasa por el MITM
-sudo python3 attack/mitm_intercept.py --mode sniff --auto-iptables
-
-# Modificar payloads al vuelo (ej. censurar una palabra)
-sudo python3 attack/mitm_intercept.py --mode modify --find "Hola" --replace "XXXX" --auto-iptables
+sudo ip link set enp0s3 up
+sudo ip addr add 192.168.100.20/24 dev enp0s3
+sudo ip link set enp0s8 up
+sudo ip addr add 10.0.0.1/24 dev enp0s8
 ```
 
-### Generar tráfico de prueba (en h1)
+### VM `h1`
 ```bash
-# en h2 antes:  python3 -m http.server 8000   y/o   nc -l -p 9000
-./attack/demo_traffic.sh 10.0.0.12
+sudo ip link set enp0s3 up
+sudo ip addr add 10.0.0.11/24 dev enp0s3
 ```
 
-### Vector B — Inyección de flujos OpenFlow (complemento SDN)
-Requiere el controlador lanzado con la API REST (`REST=1 ./scripts/run_controller.sh`):
+### VM `h2`
 ```bash
-python3 attack/flow_inject.py --controller 192.168.100.10 list
-python3 attack/flow_inject.py --controller 192.168.100.10 dump --dpid 1
-# duplicar el tráfico de la víctima al puerto del atacante
-python3 attack/flow_inject.py --controller 192.168.100.10 inject \
-    --dpid 1 --src-ip 10.0.0.11 --normal-port 2 --attacker-port 3
-python3 attack/flow_inject.py --controller 192.168.100.10 clear --dpid 1   # limpieza
+sudo ip link set enp0s3 up
+sudo ip addr add 10.0.0.12/24 dev enp0s3
 ```
 
-### Verificar el MITM (en h1)
+### VM `h3`
 ```bash
-./attack/verify_mitm.sh 10.0.0.12 <MAC_de_h3>      # debe decir "MITM CONFIRMADO"
+sudo ip link set enp0s3 up
+sudo ip addr add 10.0.0.13/24 dev enp0s3
 ```
 
-> ⚠️ Solo en el laboratorio aislado del proyecto.
+---
+
+## Paso 4 — Verificar conectividad base
+
+Antes de iniciar OVS o Ryu, confirmar que todas las VMs se ven entre sí:
+
+```bash
+# Desde h1:
+ping -c3 10.0.0.12    # h1 → h2  ✓
+ping -c3 10.0.0.13    # h1 → h3  ✓
+ping -c3 10.0.0.1     # h1 → ovs ✓
+
+# Desde ryu:
+ping -c3 192.168.100.20   # ryu → ovs ✓
+```
+
+Todos deben responder con **0% packet loss** antes de continuar.
+
+---
+
+## Paso 5 — Configurar OVS + Ryu (Fase 1)
+
+### VM `ryu` — Iniciar controlador
+
+```bash
+source ~/ryu-venv/bin/activate
+
+# Solo OpenFlow (básico):
+ryu-manager ryu.app.simple_switch_13
+
+# Con API REST (necesaria para Fase 2):
+ryu-manager --wsapi-port 8080 ryu.app.simple_switch_13 ryu.app.ofctl_rest
+```
+
+### VM `ovs` — Configurar bridge OpenFlow
+
+```bash
+sudo systemctl start openvswitch-switch
+
+# Crear bridge (solo si no existe)
+sudo ovs-vsctl add-br br0
+
+# Agregar puerto de datos al bridge
+sudo ovs-vsctl add-port br0 enp0s8
+
+# Conectar al controlador Ryu
+sudo ovs-vsctl set-controller br0 tcp:192.168.100.10:6653
+
+# Verificar estado
+sudo ovs-vsctl show
+```
+
+El output de `ovs-vsctl show` debe incluir:
+```
+Controller "tcp:192.168.100.10:6653"
+    is_connected: true
+```
+
+### Limpiar puertos fantasma (si aplica)
+
+Si `ovs-vsctl show` muestra puertos con error `"could not open network device"`,
+son residuos de sesiones anteriores. Elimínalos:
+```bash
+sudo ovs-vsctl del-port br0 enp0s9
+sudo ovs-vsctl del-port br0 enp0s10
+# Ajusta los nombres según lo que muestre ovs-vsctl show
+```
+
+---
+
+## Paso 6 — Verificar Fase 1 completa
+
+```bash
+# En ovs — confirmar OpenFlow 1.3 activo:
+sudo ovs-ofctl -O OpenFlow13 show br0
+sudo ovs-ofctl -O OpenFlow13 dump-flows br0
+# Resultado esperado:
+#   priority=0 actions=CONTROLLER:65535
+#   n_packets > 0 (confirma tráfico procesado)
+```
+
+La terminal de Ryu debe mostrar mensajes `packet in` de los MACs de las VMs.
+
+### Checklist Fase 1
+
+- [ ] Todas las VMs se pinchan entre sí (0% packet loss)
+- [ ] `ovs-vsctl show` → `is_connected: true`
+- [ ] `dump-flows` muestra: `priority=0 actions=CONTROLLER:65535`
+- [ ] Terminal de Ryu muestra `packet in` de múltiples MACs
+
+---
+
+## Solución de problemas conocidos
+
+### El Ethernet Switch de GNS3 no reenvía tráfico entre VMs
+
+**Causa:** GNS3 no puede reconfigurar adaptadores de VMs que ya están corriendo, o hay
+conflicto con el tipo de adaptador configurado en VirtualBox.
+
+**Solución confirmada:** Apagar todas las VMs → configurar todos los adaptadores como
+**Red interna → `intnet`** en VirtualBox → reiniciar.
+
+---
+
+### Error: "Attachment 'nat' is already configured on adapter 0" en GNS3
+
+Marcar **"Allow GNS3 to use any configured VirtualBox adapter"** en las propiedades del nodo
+en GNS3 (clic derecho → Configure → pestaña Network).
+
+---
+
+### enp0s8 en OVS muestra `master ovs-system` y no responde a ping
+
+OVS tomó control de la interfaz en una sesión anterior. Para liberarla:
+```bash
+sudo systemctl start openvswitch-switch
+sudo ovs-vsctl del-port br0 enp0s8
+sudo systemctl stop openvswitch-switch
+sudo ip addr flush dev enp0s8
+sudo ip addr add 10.0.0.1/24 dev enp0s8
+sudo ip link set enp0s8 up
+```
+
+---
+
+### `ovs-ofctl show br0` falla con "version negotiation failed"
+
+Ryu usa OpenFlow 1.3, pero `ovs-ofctl` usa 1.0 por defecto. Siempre agregar `-O OpenFlow13`:
+```bash
+sudo ovs-ofctl -O OpenFlow13 show br0
+sudo ovs-ofctl -O OpenFlow13 dump-flows br0
+```
+
+---
+
+### IPs perdidas al reiniciar las VMs
+
+**Opción A:** Reasignar manualmente (Paso 3 de esta guía).
+
+**Opción B — IPs persistentes con Netplan** (recomendado para evitar repetir cada sesión):
+```yaml
+# /etc/netplan/00-installer-config.yaml — ejemplo para h1
+network:
+  version: 2
+  ethernets:
+    enp0s3:
+      addresses: [10.0.0.11/24]
+      dhcp4: false
+```
+```bash
+sudo netplan apply
+```
+
+Ajusta la IP según la VM. Para `ovs`, configura ambas interfaces (`enp0s3` y `enp0s8`).
 
 ---
 
@@ -207,49 +346,58 @@ python3 attack/flow_inject.py --controller 192.168.100.10 clear --dpid 1   # lim
 ├── README.md
 ├── LICENSE
 ├── requirements.txt
-├── .gitignore
 ├── controller/
-│   └── simple_switch_13.py      # Controlador Ryu (learning switch OpenFlow 1.3)
+│   └── simple_switch_13.py        # Controlador Ryu — learning switch OpenFlow 1.3
+├── mitigation/                    # Fase 4: módulo de mitigación activa
+│   ├── arp_monitor.py             # Ryu app con detección ARP Spoofing + bloqueo
+│   ├── flow_anomaly.py            # Detector estadístico de anomalías en flujos
+│   └── run_mitigation.sh          # Inicia Ryu en modo mitigación
 ├── ovs/
-│   └── setup_ovs.sh             # Configura Open vSwitch y lo conecta a Ryu
+│   └── setup_ovs.sh               # Configura Open vSwitch y lo conecta a Ryu
 ├── hosts/
-│   └── config_host.sh           # Direccionamiento IPv4 estático de los hosts
-├── attack/                      # Fase 2: módulo de ataque MITM
-│   ├── arp_spoof.py             # ARP Spoofing (Scapy) desde el atacante
-│   ├── flow_inject.py           # Inyección de flujos OpenFlow vía API REST de Ryu
-│   ├── mitm_intercept.py        # Interceptación/modificación de paquetes
-│   ├── demo_traffic.sh          # Genera tráfico de prueba (ICMP/TCP/HTTP)
-│   └── verify_mitm.sh           # Verifica que el MITM esté activo
+│   └── config_host.sh             # Asignación de IP por rol
+├── attack/                        # Fase 2: módulo de ataque MITM
+│   ├── arp_spoof.py               # ARP Spoofing (Scapy)
+│   ├── flow_inject.py             # Inyección de flujos OpenFlow vía API REST
+│   ├── mitm_intercept.py          # Interceptación/modificación de paquetes
+│   ├── demo_traffic.sh            # Genera tráfico de prueba (ICMP/TCP/HTTP)
+│   └── verify_mitm.sh             # Verifica que el MITM esté activo
 ├── scripts/
-│   ├── setup_env.sh             # Instala dependencias según el rol de la VM
-│   ├── run_controller.sh        # Arranca el controlador Ryu
-│   └── baseline_capture.sh      # Captura la línea base de tráfico (pcap)
-├── captures/                    # Capturas .pcap (ignoradas por git)
+│   ├── setup_env.sh               # Instala dependencias según rol
+│   ├── run_controller.sh          # Arranca Ryu (modo básico)
+│   ├── diagnose.sh                # Diagnóstico completo del stack
+│   ├── baseline_capture.sh        # Captura línea base de tráfico (pcap)
+│   ├── collect_evidence.sh        # Captura evidencias durante el ataque (Fase 3)
+│   ├── flow_stats.py              # Extrae estadísticas de flujo de Ryu (Fase 3)
+│   ├── analyze_ioc.py             # Analiza IoC en capturas PCAP (Fase 3)
+│   └── evaluate_mitigation.py     # Calcula TP, FP, tiempos de respuesta (Fase 4)
+├── captures/                      # Artefactos generados (excluido de git)
+│   └── .gitkeep
 └── docs/
-    ├── PLAN_GENERAL.md          # Plan de las 4 fases (OE1–OE5)
-    ├── FASE1.md                 # Documentación detallada de la Fase 1
-    ├── FASE2.md                 # Documentación detallada de la Fase 2
-    ├── TOPOLOGIAS.md            # Topologías estrella / árbol / malla + direccionamiento
-    └── Anteproyecto_MITM_SDN.pdf
+    ├── PLAN_GENERAL.md
+    ├── FASE1.md
+    ├── FASE2.md
+    ├── FASE3.md
+    ├── FASE4.md
+    └── TOPOLOGIAS.md
 ```
 
 ---
 
 ## Herramientas
 
-- **[GNS3](https://www.gns3.com/)** + **VirtualBox** — emulación de red con VMs reales.
-- **[Ryu](https://ryu-sdn.org/)** — controlador SDN en Python (API REST en Fase 2).
-- **[Open vSwitch](https://www.openvswitch.org/)** — switch OpenFlow.
-- **[Scapy](https://scapy.net/)** — construcción/inyección de paquetes (Fase 2).
-- **[Wireshark](https://www.wireshark.org/) / tcpdump** — captura y análisis de tráfico.
+- **VirtualBox** — virtualización de VMs
+- **GNS3** — visualización de topología (opcional)
+- **Ryu** — controlador SDN en Python (OpenFlow 1.3)
+- **Open vSwitch** — switch OpenFlow
+- **Scapy** — construcción/inyección de paquetes (Fase 2)
+- **Wireshark / tcpdump** — captura y análisis de tráfico
 
 ---
 
-## Bitácora de avance
+## Bitácora
 
-- **Fase 1 — Semana 1:** entorno GNS3 + SDN configurado y línea base capturada. ✅
-- **Fase 2 — Semana 2:** ataque MITM implementado — ARP Spoofing, inyección de flujos e interceptación/modificación. ✅
-- Fase 3 — Semana 3: _pendiente._
-- Fase 4 — Semana 4: _pendiente._
-
-> Este README se irá actualizando a medida que avancemos en cada fase.
+- **Fase 1 — Semana 1:** Entorno configurado, conectividad 0% packet loss entre todas las VMs, OVS ↔ Ryu con OpenFlow 1.3 activo (`is_connected: true`). ✅
+- **Fase 2 — Semana 2:** ARP Spoofing funcional desde h3 — MITM confirmado por tabla ARP de víctima. ✅
+- **Fase 3 — Semana 3:** Scripts de captura, extracción de flujos y análisis IoC implementados. ✅
+- **Fase 4 — Semana 4:** Módulo de mitigación (`arp_monitor.py`) implementado. En pruebas. 🧪

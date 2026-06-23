@@ -9,5 +9,12 @@ ryu==4.34
 eventlet==0.30.2
 scapy>=2.5.0
 
-# Cliente HTTP para consumir la API REST de Ryu (se usa a partir de la Fase 2)
+# Cliente HTTP para consumir la API REST de Ryu (Fase 2, 3 y 4)
 requests>=2.31.0
+
+# Interceptacion y modificacion de paquetes al vuelo (Fase 2 — VM atacante h3)
+# Requiere: sudo apt-get install -y libnetfilter-queue-dev libnfnetlink-dev build-essential python3-dev
+netfilterqueue>=1.0.0
+
+# Nota: setuptools y pip deben ser versiones antiguas para Ryu:
+#   pip install "pip<21" "setuptools==58.2.0"
