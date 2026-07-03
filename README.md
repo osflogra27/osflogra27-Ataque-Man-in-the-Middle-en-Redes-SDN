@@ -18,8 +18,8 @@ controlada por **Ryu** y conmutada por **Open vSwitch (OVS)**, usando **Scapy** 
 |------|----------|--------|
 | **Fase 1** | Preparación del entorno: VMs, OVS, Ryu, conectividad verificada | ✅ Completada |
 | **Fase 2** | Implementación del ataque MITM (ARP Spoofing + inyección de flujos OpenFlow) | ✅ Completada |
-| **Fase 3** | Recolección y análisis de evidencias (pcap, estadísticas de flujo, IoC) | ✅ Completada |
-| **Fase 4** | Mitigación activa en Ryu + evaluación de métricas (TP, FP, tiempos) | 🧪 En pruebas |
+| **Fase 3** | Recolección y análisis de evidencias (pcap, estadísticas de flujo, IoC) | En proseso |
+| **Fase 4** | Mitigación activa en Ryu + evaluación de métricas (TP, FP, tiempos) | 🧪 En pruebas proximas|
 
 ---
 
