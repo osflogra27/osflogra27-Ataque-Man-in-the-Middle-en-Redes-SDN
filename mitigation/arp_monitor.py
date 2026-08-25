@@ -71,9 +71,9 @@ class ArpMonitor(SimpleSwitch13):
 
     # ── Packet-in: hereda de SimpleSwitch13 y agrega inspeccion ARP ──
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
-    def packet_in_handler(self, ev):
+    def _packet_in_handler(self, ev):
         # Primero deja que simple_switch_13 haga su trabajo (aprendizaje + forwarding)
-        super().packet_in_handler(ev)
+        super()._packet_in_handler(ev)
 
         # Luego inspeccionamos el paquete ARP
         msg = ev.msg
